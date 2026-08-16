@@ -7,7 +7,7 @@ organization. Reference them pinned to a commit SHA:
 - id: setup_devenv
   uses: bingamon-lab-tf-modules/.github/.github/actions/setup-devenv@<sha> # trunk
   with:
-    ci_app_id: ${{ secrets.CI_APP_ID }}
+    ci_app_client_id: ${{ secrets.CI_APP_CLIENT_ID }}
     ci_app_private_key: ${{ secrets.CI_APP_PRIVATE_KEY }}
     cachix_cache_name: ${{ vars.CACHIX_CACHE_NAME }}
     cachix_auth_token: ${{ secrets.CACHIX_AUTH_TOKEN }}
@@ -28,6 +28,6 @@ Dependabot's `github-actions` ecosystem bumps the pin like any other action.
 Pull requests, tags and releases created with the default `GITHUB_TOKEN` do
 not trigger downstream workflows, and runs triggered by `github-actions[bot]`
 are held in "workflows awaiting approval". Tokens minted from the
-`enterprise-ci` GitHub App (org secrets `CI_APP_ID` / `CI_APP_PRIVATE_KEY`)
+`enterprise-ci` GitHub App (org secrets `CI_APP_CLIENT_ID` / `CI_APP_PRIVATE_KEY`)
 have neither problem; each token is scoped to the calling repository at mint
 time.

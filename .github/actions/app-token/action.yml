@@ -9,8 +9,8 @@ description: >-
 
 inputs:
   # Composite actions cannot read secrets.* or vars.* — callers must pass them.
-  app_id:
-    description: "GitHub App ID (optional; falls back to GITHUB_TOKEN)"
+  app_client_id:
+    description: "GitHub App Client ID (optional; falls back to GITHUB_TOKEN)"
     required: false
     default: ""
   app_private_key:
@@ -41,10 +41,10 @@ runs:
       name: "Check for GitHub App credentials 🔑"
       shell: bash
       env:
-        APP_ID: ${{ inputs.app_id }}
+        APP_CLIENT_ID: ${{ inputs.app_client_id }}
         APP_KEY: ${{ inputs.app_private_key }}
       run: |
-        if [[ -n "${APP_ID}" && -n "${APP_KEY}" ]];
+        if [[ -n "${APP_CLIENT_ID}" && -n "${APP_KEY}" ]];
         then
           echo "has_app=true" >> "${GITHUB_OUTPUT}"
         else
@@ -57,7 +57,7 @@ runs:
       if: steps.check.outputs.has_app == 'true'
       uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
       with:
-        app-id: ${{ inputs.app_id }}
+        client-id: ${{ inputs.app_client_id }}
         private-key: ${{ inputs.app_private_key }}
         owner: ${{ inputs.owner }}
         repositories: ${{ inputs.repositories }}
