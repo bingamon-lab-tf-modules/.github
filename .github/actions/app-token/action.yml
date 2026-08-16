@@ -1,0 +1,63 @@
+---
+# yaml-language-server: $schema=https://www.schemastore.org/github-action.json
+name: "App Token"
+description: >-
+  Mint a GitHub App installation token, falling back to the workflow's own
+  GITHUB_TOKEN when no App credentials are provided. Unlike GITHUB_TOKEN, an
+  App token triggers downstream workflows, so pull requests, tags and releases
+  created with it run CI without sitting in "workflows awaiting approval".
+
+inputs:
+  # Composite actions cannot read secrets.* or vars.* — callers must pass them.
+  app_id:
+    description: "GitHub App ID (optional; falls back to GITHUB_TOKEN)"
+    required: false
+    default: ""
+  app_private_key:
+    description: "GitHub App private key PEM contents (optional; falls back to GITHUB_TOKEN)"
+    required: false
+    default: ""
+  owner:
+    description: "Owner of the installation (defaults to the calling repository's owner)"
+    required: false
+    default: ${{ github.repository_owner }}
+  repositories:
+    description: "Comma or newline separated repositories to scope the token to (defaults to the calling repository)"
+    required: false
+    default: ${{ github.event.repository.name }}
+
+outputs:
+  token:
+    description: "The minted App token, or the workflow's GITHUB_TOKEN when no App credentials were provided"
+    value: ${{ steps.mint.outputs.token || github.token }}
+  has_app:
+    description: "'true' when an App token was minted, 'false' when the fallback GITHUB_TOKEN is in use"
+    value: ${{ steps.check.outputs.has_app }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: check
+      name: "Check for GitHub App credentials 🔑"
+      shell: bash
+      env:
+        APP_ID: ${{ inputs.app_id }}
+        APP_KEY: ${{ inputs.app_private_key }}
+      run: |
+        if [[ -n "${APP_ID}" && -n "${APP_KEY}" ]];
+        then
+          echo "has_app=true" >> "${GITHUB_OUTPUT}"
+        else
+          echo "No GitHub App credentials found, falling back to GITHUB_TOKEN."
+          echo "has_app=false" >> "${GITHUB_OUTPUT}"
+        fi
+
+    - id: mint
+      name: "Mint GitHub App token 🪙"
+      if: steps.check.outputs.has_app == 'true'
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        app-id: ${{ inputs.app_id }}
+        private-key: ${{ inputs.app_private_key }}
+        owner: ${{ inputs.owner }}
+        repositories: ${{ inputs.repositories }}

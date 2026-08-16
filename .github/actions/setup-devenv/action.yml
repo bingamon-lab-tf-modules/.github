@@ -1,0 +1,84 @@
+---
+# yaml-language-server: $schema=https://www.schemastore.org/github-action.json
+name: "Setup Devenv"
+description: >-
+  Install Nix, enable Cachix, and install devenv. Optionally mints a GitHub
+  App token for the Nix GitHub access token (higher rate limits, private flake
+  inputs); without App credentials it falls back to the workflow's own
+  GITHUB_TOKEN.
+
+inputs:
+  # Composite actions cannot read secrets.* or vars.* — callers must pass them.
+  ci_app_id:
+    description: "GitHub App ID for generating a token (optional; falls back to GITHUB_TOKEN)"
+    required: false
+    default: ""
+  ci_app_private_key:
+    description: "GitHub App private key PEM contents (optional; falls back to GITHUB_TOKEN)"
+    required: false
+    default: ""
+  cachix_cache_name:
+    description: "Cachix cache name (optional; skip Cachix when empty)"
+    required: false
+    default: ""
+  cachix_auth_token:
+    description: "Cachix auth token (optional; skipPush when empty)"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - id: check_app
+      name: "Check for GitHub App credentials 🔑"
+      shell: bash
+      env:
+        APP_ID: ${{ inputs.ci_app_id }}
+        APP_KEY: ${{ inputs.ci_app_private_key }}
+      run: |
+        if [[ -n "${APP_ID}" && -n "${APP_KEY}" ]];
+        then
+          echo "has_app=true" >> "${GITHUB_OUTPUT}"
+        else
+          echo "No GitHub App credentials found, falling back to GITHUB_TOKEN."
+          echo "has_app=false" >> "${GITHUB_OUTPUT}"
+        fi
+
+    - id: generate_token
+      name: "Generate GitHub App Token 🪙"
+      if: steps.check_app.outputs.has_app == 'true'
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        app-id: ${{ inputs.ci_app_id }}
+        private-key: ${{ inputs.ci_app_private_key }}
+        owner: ${{ github.repository_owner }}
+        repositories: ${{ github.event.repository.name }}
+
+    - id: install_nix
+      name: "Install Nix ❄️"
+      uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
+      with:
+        # A skipped generate_token step yields an empty (falsy) output, so this
+        # falls back to the workflow's own GITHUB_TOKEN.
+        github_access_token: ${{ steps.generate_token.outputs.token || github.token }}
+        enable_kvm: true
+        # fallback = true:
+        # Build a path locally when substitution fails instead of aborting evaluation.
+        extra_nix_config: |
+          fallback = true
+
+    - id: cachix
+      name: "Enable Cachix ❄️"
+      if: inputs.cachix_cache_name != ''
+      uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
+      with:
+        name: ${{ inputs.cachix_cache_name }}
+        authToken: ${{ inputs.cachix_auth_token }}
+        useDaemon: true
+        skipPush: ${{ inputs.cachix_auth_token == '' }}
+
+    - id: devenv_install
+      name: "Install Devenv"
+      shell: bash
+      run: |
+        nix profile install --accept-flake-config nixpkgs#devenv

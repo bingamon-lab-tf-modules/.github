@@ -1,0 +1,58 @@
+---
+# yaml-language-server: $schema=https://www.schemastore.org/github-action.json
+name: "Commit Status"
+description: >-
+  Report a commit status to GitHub based on the outcome of an earlier step.
+  Replaces the per-workflow copy-pasted `gh api repos/.../statuses/...` block.
+
+inputs:
+  outcome:
+    description: "The outcome of the step being reported (pass steps.<id>.outcome)"
+    required: true
+  context:
+    description: "Status context (defaults to the workflow name)"
+    required: false
+    default: ${{ github.workflow }}
+  success_description:
+    description: "Description to report when the outcome is success"
+    required: false
+    default: "Passed!"
+  failure_description:
+    description: "Description to report when the outcome is not success"
+    required: false
+    default: "Failed!"
+  token:
+    description: "Token used to report the status (defaults to GITHUB_TOKEN)"
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: report
+      name: "Report commit status"
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        OUTCOME: ${{ inputs.outcome }}
+        CONTEXT: ${{ inputs.context }}
+        DESCRIPTION_SUCCESS: ${{ inputs.success_description }}
+        DESCRIPTION_FAILURE: ${{ inputs.failure_description }}
+      run: |
+        if [[ "${OUTCOME}" == "success" ]];
+        then
+          RESULT="success"
+          DESCRIPTION="${DESCRIPTION_SUCCESS}"
+        else
+          RESULT="failure"
+          DESCRIPTION="${DESCRIPTION_FAILURE}"
+        fi
+        gh api \
+          "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+          -f state="${RESULT}" \
+          -f context="${CONTEXT}" \
+          -f description="${DESCRIPTION}" \
+          -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" || {
+            echo "Failed to report commit status!"
+            exit 1
+          }
