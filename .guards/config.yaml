@@ -1,0 +1,7 @@
+---
+chores:
+  dependabot: true
+  renovate: true
+  tars_cloud: true
+  ci_wait_seconds: 300
+  additional_sources: []
